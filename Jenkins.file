@@ -1,0 +1,47 @@
+pipeline {
+  agent any
+environment {
+    APP_NAME = "myapp"
+}
+
+stages {
+    stage('Checkout Code') {
+        steps {
+            git branch: 'master', url: 'https://github.com/darshanagi/maven-simple-master.git'
+        }
+    }
+
+    stage('Build with Maven') {
+        steps {
+            sh 'mvn clean package'
+        }
+    }
+
+    stage('Upload to Nexus') {
+        steps {
+            withMaven(maven: 'M3') {
+                sh "mvn clean deploy -s /var/lib/jenkins/.m2/settings.xml -DskipTests"
+            }
+        }
+    }
+
+    stage('Download from Nexus') {
+        steps {
+            sh """
+            curl -u admin:admin@123 -O \
+            http://65.2.9.176:8081/repository/maven-releases/com/github/jitpack/maven-simple/0.2-SNAPSHOT/maven-simple-0.2-SNAPSHOT.jar
+            """
+        }
+    }
+
+    stage('Deploy to Nginx') {
+        steps {
+            sh """
+            sudo rm -rf /var/www/html/*
+            sudo cp target/maven-simple-0.2-SNAPSHOT.jar /var/www/html/
+            sudo systemctl restart nginx
+            """
+        }
+    }
+}
+}
